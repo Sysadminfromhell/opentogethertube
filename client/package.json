@@ -6,9 +6,9 @@
   "scripts": {
     "serve": "vite serve",
     "build": "vite build",
-    "lint": "tsc --noEmit && eslint --cache --ext .js,.ts,.vue --fix .",
+    "lint": "prettier --write --config ../.prettierrc '**/*.vue' && tsc --noEmit && eslint --cache --ext .js,.ts,.vue --fix .",
     "i18n:report": "vue-cli-service i18n:report --src \"./src/**/*.?(js|vue)\" --locales \"./src/locales/**/*.json\"",
-    "lint-ci": "tsc --noEmit && eslint --cache .",
+    "lint-ci": "prettier --check --config ../.prettierrc '**/*.vue' && tsc --noEmit && eslint --cache .",
     "test": "vitest run --coverage",
     "cy:open": "cypress open --component",
     "cy:run": "cypress run --component"
@@ -26,6 +26,7 @@
     "lodash": "^4.17.21",
     "ott-common": "workspace:*",
     "plyr": "3.7.8",
+    "prettier": "^3.6.2",
     "sortablejs": "^1.15.0",
     "sortablejs-vue3": "^1.2.3",
     "typescript": "5.4.5",
