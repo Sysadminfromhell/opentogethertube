@@ -217,14 +217,22 @@ export default class InvidiousAdapter extends ServiceAdapter {
 					topRes: pick.topRes,
 				});
 				if (pick.kind === "dash") {
+					const dashqualities = await this.dashqualities(pick.url);
 					return {
 						service: "dash",
 						id: pick.url,
 						...base,
 						dash_url: pick.url,
 						mime: "application/dash+xml", // Some downstream codepaths expect a MIME hint even though dash.js can infer. – Pipeline/browser integration
-					};
+					? {
+						qualities: {
+							kind: "dash",
+							entries: dashqualities,
+						},
+					}: {}),
+				} as unknown as video;
 				} else {
+					const hlsqualities = await this.hlsqualities(pick.url);
 					return {
 						service: "hls",
 						id: pick.url,
@@ -232,9 +240,15 @@ export default class InvidiousAdapter extends ServiceAdapter {
 						hls_url: pick.url,
 						// Mimetype application/vnd.apple.mpegurl not supported by plyrplayer so switching to x-mpegURL
 						mime: "application/x-mpegURL",
-					};
-				}
+					? {
+						qualities: {
+							kind: "hls",
+							entries: hlsqualities,
+						},
+					}: {})
+				} as unkown as video;
 			}
+		}
 		} catch (e) {
 			log.warn(`DASH/HLS probing failed for ${host}:${id}, will try progressive.`, {
 				err: e instanceof Error ? e.message : e,
