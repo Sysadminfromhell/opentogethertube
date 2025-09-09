@@ -27,6 +27,7 @@ import PeertubeAdapter from "./services/peertube.js";
 import PlutoAdapter from "./services/pluto.js";
 import DashVideoAdapter from "./services/dash.js";
 import InvidiousAdapter from "./services/invidious.js";
+import SoundCloudAdapter from "./services/soundcloud.js";
 
 const log = getLogger("infoextract");
 
@@ -88,6 +89,9 @@ export async function initExtractor() {
 	}
 	if (enabled.includes("invidious")) {
 		adapters.push(new InvidiousAdapter());
+	}
+	if (enabled.includes("soundcloud")) {
+		adapters.push(new SoundCloudAdapter());
 	}
 
 	await Promise.all(adapters.map(adapter => adapter.initialize()));
