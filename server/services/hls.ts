@@ -1,13 +1,12 @@
-import URL from "url";
-import _ from "lodash";
-import { ServiceAdapter } from "../serviceadapter.js";
-import { LocalFileException, UnsupportedMimeTypeException } from "../exceptions.js";
-import { getMimeType, isSupportedMimeType } from "../mime.js";
-import { getLogger } from "../logger.js";
-import { Video } from "ott-common/models/video.js";
-import { Parser as M3u8Parser } from "m3u8-parser";
+import URL from "node:url";
 import axios from "axios";
+import { Parser as M3u8Parser, type PlaylistItem } from "m3u8-parser";
 import { OttException } from "ott-common/exceptions.js";
+import type { Video } from "ott-common/models/video.js";
+import { LocalFileException, UnsupportedMimeTypeException } from "../exceptions.js";
+import { getLogger } from "../logger.js";
+import { getMimeType, isSupportedMimeType } from "../mime.js";
+import { ServiceAdapter } from "../serviceadapter.js";
 
 const log = getLogger("hls");
 
@@ -55,31 +54,38 @@ export default class HlsVideoAdapter extends ServiceAdapter {
 		const manifest = parser.manifest;
 		// log.silly(`Got m3u8 manifest with ${JSON.stringify(manifest)}`);
 
-		if (manifest.playlists.length === 0) {
-			throw new M3u8ParseError("No playlists found in manifest");
+		let duration = 0;
+		let title: string | undefined;
+
+		// The m3u8 manifest can be a master playlist containing other playlists or a media playlist containing segments.
+		// If it has playlists, we find the lowest bitrate one and extract the duration from it.
+		// Otherwise, we assume it's a media playlist and calculate the duration from its segments.
+		if (manifest.playlists && manifest.playlists?.length > 0) {
+			const lowestBitratePlaylist = manifest.playlists.reduce(
+				(acc, cur) => {
+					if ((cur.attributes?.BANDWIDTH ?? 0) < (acc.attributes?.BANDWIDTH ?? 0)) {
+						return cur;
+					} else {
+						return acc;
+					}
+				},
+				{ attributes: { BANDWIDTH: Infinity } } as PlaylistItem
+			);
+			const playlistUrl = URL.resolve(url.href, lowestBitratePlaylist.uri);
+			log.silly(`new playlist path ${playlistUrl}`);
+			const respStreams = await axios.get(playlistUrl);
+			const parser2 = new M3u8Parser();
+			parser2.push(respStreams.data);
+			parser2.end();
+			const manifest2 = parser2.manifest;
+			// log.silly(`Got m3u8 manifest with ${JSON.stringify(manifest2)}`);
+			duration = manifest2.segments.reduce((acc, cur) => acc + cur.duration, 0);
+			title = manifest2.segments[0].title;
+		} else {
+			duration = manifest.segments.reduce((acc, cur) => acc + cur.duration, 0);
+			title = manifest.segments[0].title;
 		}
 
-		const lowestBitratePlaylist = manifest.playlists.reduce(
-			(acc, cur) => {
-				if (cur.attributes.BANDWIDTH < acc.attributes.BANDWIDTH) {
-					return cur;
-				} else {
-					return acc;
-				}
-			},
-			{ attributes: { BANDWIDTH: Infinity } }
-		);
-		const newPath =
-			url.pathname?.split("/").slice(0, -1).join("/") + "/" + lowestBitratePlaylist.uri;
-		log.silly(`new playlist path ${newPath}`);
-		const respStreams = await axios.get("https://" + url.hostname + newPath);
-		const parser2 = new M3u8Parser();
-		parser2.push(respStreams.data);
-		parser2.end();
-		const manifest2 = parser2.manifest;
-		// log.silly(`Got m3u8 manifest with ${JSON.stringify(manifest2)}`);
-
-		const duration = manifest2.segments.reduce((acc, cur) => acc + cur.duration, 0);
 		if (duration === 0) {
 			throw new M3u8ParseError("Duration of the selected playlist is 0");
 		}
@@ -87,7 +93,7 @@ export default class HlsVideoAdapter extends ServiceAdapter {
 		return {
 			service: "hls",
 			id: url.href,
-			title: manifest2.attributes?.NAME ?? url.href,
+			title: title ?? url.href,
 			description: `Full Link: ${url.href}`,
 			mime: "application/x-mpegURL",
 			length: duration,
