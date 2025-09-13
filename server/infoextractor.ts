@@ -28,6 +28,7 @@ import PlutoAdapter from "./services/pluto.js";
 import DashVideoAdapter from "./services/dash.js";
 import InvidiousAdapter from "./services/invidious.js";
 import OdyseeAdapter from "./services/odysee.js";
+import spotifyToYt from "./services/spotifytoyt.js";
 
 const log = getLogger("infoextract");
 
@@ -92,6 +93,16 @@ export async function initExtractor() {
 	}
 	if (enabled.includes("odysee")) {
 		adapters.push(new OdyseeAdapter());
+	}
+	if (enabled.includes("spotifyToYt")) {
+		const clientid:string = conf.get("info_extractor.spotify.client_id");
+		const secret:string = conf.get("info_extractor.spotify.client_secret");
+
+		if (!clientid || !secret) {
+			log.warn("There is no clientsecret or clientid configured to use spotify -> Disabling spotify.");
+		} else {
+			adapters.push(new spotifyToYt(clientid,secret));
+		}
 	}
 
 	await Promise.all(adapters.map(adapter => adapter.initialize()));

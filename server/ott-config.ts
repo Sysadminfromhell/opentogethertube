@@ -296,6 +296,20 @@ export const conf = convict({
 				},
 			},
 		},
+		spotify : {
+			client_id: {
+				default: "",
+				doc: "Client ID from the Spotify registered app.",
+				format: String,
+				env: "SPOTIFY_CLIENT_ID",
+			},
+			client_secret: {
+				default: "",
+				doc: "Client Secret from the Spotify registered app.",
+				format: String,
+				env: "SPOTIFY_CLIENT_SECRET",
+			},
+		},
 	},
 	rate_limit: {
 		enabled: {
